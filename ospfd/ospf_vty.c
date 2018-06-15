@@ -72,13 +72,11 @@ int str2area_id(const char *str, struct in_addr *area_id, int *area_id_fmt)
 	return 0;
 }
 
-void area_id2str(char *buf, int length, struct in_addr *area_id,
-		 int area_id_fmt)
+static void area_id2str(char *buf, int length, struct in_addr *area_id,
+			int area_id_fmt)
 {
-	memset(buf, 0, length);
-
 	if (area_id_fmt == OSPF_AREA_ID_FMT_DOTTEDQUAD)
-		strncpy(buf, inet_ntoa(*area_id), length);
+		inet_ntop(AF_INET, area_id, buf, length);
 	else
 		sprintf(buf, "%lu", (unsigned long)ntohl(area_id->s_addr));
 }
@@ -8084,9 +8082,6 @@ DEFUN (ospf_redistribute_source,
 	struct ospf_redist *red;
 	int idx = 0;
 
-	if (!ospf)
-		return CMD_SUCCESS;
-
 	/* Get distribute source. */
 	source = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
 	if (source < 0)
@@ -8168,9 +8163,6 @@ DEFUN (ospf_redistribute_instance_source,
 	int metric = -1;
 	unsigned short instance;
 	struct ospf_redist *red;
-
-	if (!ospf)
-		return CMD_SUCCESS;
 
 	source = proto_redistnum(AFI_IP, argv[idx_ospf_table]->text);
 
@@ -8466,9 +8458,6 @@ DEFUN (no_ospf_distance_ospf,
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx = 0;
 
-	if (!ospf)
-		return CMD_SUCCESS;
-
 	if (argv_find(argv, argc, "intra-area", &idx) || argc == 3)
 		idx = ospf->distance_intra = 0;
 	if (argv_find(argv, argc, "inter-area", &idx) || argc == 3)
@@ -8522,9 +8511,6 @@ DEFUN (ospf_distance_source,
   int idx_number = 1;
   int idx_ipv4_prefixlen = 2;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   ospf_distance_set (vty, ospf, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, NULL);
 
   return CMD_SUCCESS;
@@ -8541,9 +8527,6 @@ DEFUN (no_ospf_distance_source,
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number = 2;
   int idx_ipv4_prefixlen = 3;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   ospf_distance_unset (vty, ospf, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, NULL);
 
@@ -8563,9 +8546,6 @@ DEFUN (ospf_distance_source_access_list,
   int idx_ipv4_prefixlen = 2;
   int idx_word = 3;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   ospf_distance_set (vty, ospf, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, argv[idx_word]->arg);
 
   return CMD_SUCCESS;
@@ -8584,9 +8564,6 @@ DEFUN (no_ospf_distance_source_access_list,
   int idx_number = 2;
   int idx_ipv4_prefixlen = 3;
   int idx_word = 4;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   ospf_distance_unset (vty, ospf, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, argv[idx_word]->arg);
 
@@ -9785,10 +9762,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				else
 					vty_out(vty, " ip ospf");
 
-
-				size_t buflen = MAX(strlen("4294967295"),
-						    strlen("255.255.255.255"));
-				char buf[buflen];
+				char buf[INET_ADDRSTRLEN];
 
 				area_id2str(buf, sizeof(buf), &params->if_area,
 					    params->if_area_id_fmt);
@@ -9800,7 +9774,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 			}
 
 			/* bfd  print. */
-			if (params->bfd_info)
+			if (params && params->bfd_info)
 				ospf_bfd_write_config(vty, params);
 
 			/* MTU ignore print. */
@@ -9863,12 +9837,10 @@ static int config_write_network_area(struct vty *vty, struct ospf *ospf)
 		if (rn->info) {
 			struct ospf_network *n = rn->info;
 
-			memset(buf, 0, INET_ADDRSTRLEN);
-
 			/* Create Area ID string by specified Area ID format. */
 			if (n->area_id_fmt == OSPF_AREA_ID_FMT_DOTTEDQUAD)
-				strncpy((char *)buf, inet_ntoa(n->area_id),
-					INET_ADDRSTRLEN);
+				inet_ntop(AF_INET, &n->area_id, (char *)buf,
+					  sizeof(buf));
 			else
 				sprintf((char *)buf, "%lu",
 					(unsigned long int)ntohl(
@@ -9893,7 +9865,7 @@ static int config_write_ospf_area(struct vty *vty, struct ospf *ospf)
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {
 		struct route_node *rn1;
 
-		area_id2str((char *)buf, INET_ADDRSTRLEN, &area->area_id,
+		area_id2str((char *)buf, sizeof(buf), &area->area_id,
 			    area->area_id_fmt);
 
 		if (area->auth_type != OSPF_AUTH_NULL) {
@@ -10028,8 +10000,6 @@ static int config_write_virtual_link(struct vty *vty, struct ospf *ospf)
 		struct ospf_interface *oi;
 
 		if (vl_data != NULL) {
-			memset(buf, 0, INET_ADDRSTRLEN);
-
 			area_id2str(buf, sizeof(buf), &vl_data->vl_area_id,
 				    vl_data->vl_area_id_fmt);
 			oi = vl_data->vl_oi;
