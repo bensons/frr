@@ -173,6 +173,20 @@ tests_lib_test_checksum_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_checksum_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_checksum_SOURCES = tests/lib/test_checksum.c tests/helpers/c/prng.c
 
+if BFD_OPT_AUTH
+check_PROGRAMS += tests/lib/test_isaac
+tests_lib_test_isaac_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_isaac_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_isaac_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_isaac_SOURCES = tests/lib/test_isaac.c
+
+check_PROGRAMS += tests/lib/test_bfd_isaac
+tests_lib_test_bfd_isaac_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_bfd_isaac_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_bfd_isaac_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_bfd_isaac_SOURCES = tests/lib/test_bfd_isaac.c
+endif
+
 
 check_PROGRAMS += tests/lib/test_darr
 tests_lib_test_darr_CFLAGS = $(TESTS_CFLAGS)

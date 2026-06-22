@@ -43,6 +43,9 @@
 #include "lib/keychain.h"
 #include "bfd.h"
 #include "bfd_trace.h"
+#ifdef HAVE_BFD_OPT_AUTH
+#include "bfd_opt_auth.h"
+#endif
 #define BUF_SIZ		   1024
 #define SOCK_OPT_PRIO_HIGH 6
 
@@ -481,6 +484,34 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 			pkt_auth_type = map_keychain_algo_to_bfd_auth_type(key->hash_algo,
 									   bfd->auth_meticulous);
 	}
+#ifdef HAVE_BFD_OPT_AUTH
+	if (bfd_opt_auth_enabled(bfd) && key &&
+	    (pkt_auth_type == BFD_AUTH_TYPE_OPT_MD5_ISAAC ||
+	     pkt_auth_type == BFD_AUTH_TYPE_OPT_SHA1_ISAAC)) {
+		enum bfd_opt_auth_mode mode = bfd_opt_auth_select_tx_mode(bfd, fbit);
+
+		SET_FLAG(cp.flags, BFD_ABIT);
+		memcpy(send_buffer, &cp, BFD_PKT_LEN);
+		auth_payload_ptr = send_buffer + BFD_PKT_LEN;
+
+		if (mode == BFD_OPT_AUTH_TX_LCI)
+			auth_section_len = 16;
+		else
+			auth_section_len = (pkt_auth_type == BFD_AUTH_TYPE_OPT_MD5_ISAAC) ? 24 : 28;
+
+		packet_len = BFD_PKT_LEN + auth_section_len;
+		cp.len = packet_len;
+		memcpy(send_buffer, &cp, BFD_PKT_LEN);
+
+		if (bfd_opt_auth_build_tx(bfd, key, pkt_auth_type, mode, auth_payload_ptr,
+					  &auth_section_len, send_buffer, packet_len, fbit)) {
+			/* auth_section_len may be refined by build_tx for LCI */
+			packet_len = BFD_PKT_LEN + auth_section_len;
+			cp.len = packet_len;
+			memcpy(send_buffer, &cp, BFD_PKT_LEN);
+		}
+	} else
+#endif
 	if (pkt_auth_type == BFD_AUTH_TYPE_SIMPLE_PASSWORD) {
 		auth_section_len = 3 + strlen(key->string);
 		packet_len = BFD_PKT_LEN + auth_section_len;
@@ -498,6 +529,34 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 		memcpy(auth_payload_ptr, key->string, strlen(key->string));
 
 #ifdef CRYPTO_OPENSSL
+	} else if ((pkt_auth_type == BFD_AUTH_TYPE_KEYED_MD5) ||
+		   (pkt_auth_type == BFD_AUTH_TYPE_METICULOUS_KEYED_MD5)) {
+		const EVP_MD *md_alg = EVP_md5();
+		unsigned int digest_len = 0;
+		unsigned char digest[16];
+		uint32_t seq_num_n;
+
+		auth_section_len = 24;
+		packet_len = BFD_PKT_LEN + auth_section_len;
+		cp.len = packet_len;
+		SET_FLAG(cp.flags, BFD_ABIT);
+		memcpy(send_buffer, &cp, BFD_PKT_LEN);
+		auth_payload_ptr = send_buffer + BFD_PKT_LEN;
+
+		*auth_payload_ptr++ = pkt_auth_type;
+		*auth_payload_ptr++ = auth_section_len;
+		*auth_payload_ptr++ = key->index;
+		*auth_payload_ptr++ = 0;
+
+		bfd->auth_seq_num++;
+		seq_num_n = htonl(bfd->auth_seq_num);
+		memcpy(auth_payload_ptr, &seq_num_n, sizeof(seq_num_n));
+		auth_payload_ptr += sizeof(seq_num_n);
+		memset(auth_payload_ptr, 0, 16);
+
+		HMAC(md_alg, key->string, strlen(key->string), send_buffer, packet_len,
+		     digest, &digest_len);
+		memcpy(auth_payload_ptr, digest, 16);
 	} else if ((pkt_auth_type == BFD_AUTH_TYPE_KEYED_SHA1) ||
 		   (pkt_auth_type == BFD_AUTH_TYPE_METICULOUS_KEYED_SHA1)) {
 		const EVP_MD *md_alg = EVP_sha1();
@@ -1120,6 +1179,39 @@ static bool bfd_check_auth(struct bfd_session *bfd, const struct bfd_pkt *cp)
 
 		break;
 	}
+#ifdef HAVE_BFD_OPT_AUTH
+	case BFD_AUTH_TYPE_OPT_MD5_ISAAC:
+	case BFD_AUTH_TYPE_OPT_SHA1_ISAAC: {
+		received_key_id = auth_section[2];
+		if (!bfd->kc) {
+			cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
+				 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
+				 "Auth: keychain configured but no keychain found");
+			return false;
+		}
+		key = key_lookup_for_accept(bfd->kc, received_key_id, true);
+		if (!key || !key->string) {
+			cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
+				 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
+				 "Auth: key ID %u not found or invalid in keychain %s",
+				 received_key_id, bfd->kc->name);
+			return false;
+		}
+		if (!bfd_opt_auth_validate_rx(bfd, cp, auth_section, auth_len, key)) {
+			uint8_t opt_mode = auth_len >= 4 ? auth_section[3] : 0;
+
+			if (opt_mode == BFD_OPT_AUTH_MODE_LCI)
+				bfd->stats.rx_pkt_authentication_opt_lci_mismatch++;
+			else
+				bfd->stats.rx_pkt_authentication_opt_mci_mismatch++;
+			cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
+				 bfd->ifp ? bfd->ifp->ifindex : 0, bfd->vrf ? bfd->vrf->vrf_id : 0,
+				 "Auth: optimized authentication validation failed");
+			return false;
+		}
+		break;
+	}
+#endif /* HAVE_BFD_OPT_AUTH */
 #endif /* CRYPTO_OPENSSL */
 	default:
 		cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
@@ -1412,6 +1504,17 @@ void bfd_recv_cb(struct event *t)
 	if (bfd->polling && BFD_GETFBIT(cp->flags)) {
 		/* Disable polling. */
 		bfd->polling = 0;
+
+#ifdef HAVE_BFD_OPT_AUTH
+		if (bfd_opt_auth_enabled(bfd)) {
+			const uint8_t *auth_sec = (const uint8_t *)cp + BFD_PKT_LEN;
+			bool used_mci = false;
+
+			if (CHECK_FLAG(cp->flags, BFD_ABIT) && cp->len > BFD_PKT_LEN + 3)
+				used_mci = auth_sec[3] == BFD_OPT_AUTH_MODE_MCI;
+			bfd_opt_auth_on_poll_final(bfd, used_mci);
+		}
+#endif
 
 		/* Handle poll finalization. */
 		bs_final_handler(bfd);

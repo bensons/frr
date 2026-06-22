@@ -1,0 +1,14 @@
+if !BFDD
+PYTEST_IGNORE += --ignore=bfdd/
+endif
+
+if BFD_OPT_AUTH
+BFD_TEST_LDADD = bfdd/bfd_opt_auth.o $(ALL_TESTS_LDADD) $(LIBYANG_LIBS) $(UST_LIBS) -lm -lcrypto
+
+check_PROGRAMS += tests/bfdd/test_bfd_opt_auth
+tests_bfdd_test_bfd_opt_auth_CFLAGS = $(TESTS_CFLAGS)
+tests_bfdd_test_bfd_opt_auth_CPPFLAGS = $(TESTS_CPPFLAGS) -I$(top_srcdir)/bfdd
+tests_bfdd_test_bfd_opt_auth_LDADD = $(BFD_TEST_LDADD)
+tests_bfdd_test_bfd_opt_auth_SOURCES = tests/bfdd/test_bfd_opt_auth.c tests/bfdd/test_bfd_opt_auth_stubs.c
+tests_bfdd_test_bfd_opt_auth_DEPENDENCIES = bfdd/bfd_opt_auth.o
+endif

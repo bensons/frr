@@ -905,6 +905,124 @@ int bfdd_bfd_sessions_common_authentication_algorithm_meticulous_destroy(
 	return NB_OK;
 }
 
+#ifdef HAVE_BFD_OPT_AUTH
+int bfdd_bfd_profile_authentication_optimized_modify(struct nb_cb_modify_args *args)
+{
+	bool optimized = yang_dnode_get_bool(args->dnode, NULL);
+	struct bfd_profile *bp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bp = nb_running_get_entry(args->dnode, NULL, true);
+	bp->auth_config.optimized = optimized;
+	bfd_profile_update(bp);
+
+	return NB_OK;
+}
+
+int bfdd_bfd_profile_authentication_optimized_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bfd_profile *bp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bp = nb_running_get_entry(args->dnode, NULL, true);
+	bp->auth_config.optimized = false;
+	bfd_profile_update(bp);
+
+	return NB_OK;
+}
+
+int bfdd_bfd_profile_reauth_interval_modify(struct nb_cb_modify_args *args)
+{
+	uint32_t interval = yang_dnode_get_uint32(args->dnode, NULL);
+	struct bfd_profile *bp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bp = nb_running_get_entry(args->dnode, NULL, true);
+	bp->auth_config.reauth_interval = interval;
+	bfd_profile_update(bp);
+
+	return NB_OK;
+}
+
+int bfdd_bfd_profile_reauth_interval_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bfd_profile *bp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bp = nb_running_get_entry(args->dnode, NULL, true);
+	bp->auth_config.reauth_interval = BFD_OPT_AUTH_DEFAULT_REAUTH_INTERVAL;
+	bfd_profile_update(bp);
+
+	return NB_OK;
+}
+
+int bfdd_bfd_sessions_common_authentication_optimized_modify(struct nb_cb_modify_args *args)
+{
+	bool optimized = yang_dnode_get_bool(args->dnode, NULL);
+	struct bfd_session *bs;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bs = nb_running_get_entry(args->dnode, NULL, true);
+	bs->peer_profile.auth_config.optimized = optimized;
+	bfd_session_apply(bs);
+
+	return NB_OK;
+}
+
+int bfdd_bfd_sessions_common_authentication_optimized_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bfd_session *bs;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bs = nb_running_get_entry(args->dnode, NULL, true);
+	bs->peer_profile.auth_config.optimized = false;
+	bfd_session_apply(bs);
+
+	return NB_OK;
+}
+
+int bfdd_bfd_sessions_common_reauth_interval_modify(struct nb_cb_modify_args *args)
+{
+	uint32_t interval = yang_dnode_get_uint32(args->dnode, NULL);
+	struct bfd_session *bs;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bs = nb_running_get_entry(args->dnode, NULL, true);
+	bs->peer_profile.auth_config.reauth_interval = interval;
+	bfd_session_apply(bs);
+
+	return NB_OK;
+}
+
+int bfdd_bfd_sessions_common_reauth_interval_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bfd_session *bs;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bs = nb_running_get_entry(args->dnode, NULL, true);
+	bs->peer_profile.auth_config.reauth_interval = BFD_OPT_AUTH_DEFAULT_REAUTH_INTERVAL;
+	bfd_session_apply(bs);
+
+	return NB_OK;
+}
+#endif /* HAVE_BFD_OPT_AUTH */
+
 /*
  * XPath: /frr-bfdd:bfdd/bfd/sessions/single-hop
  */

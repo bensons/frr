@@ -52,6 +52,14 @@ module frr-bfdd {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
+  revision 2026-06-22 {
+    description
+      "Add RFC 9985 optimized BFD authentication configuration.";
+    reference
+      "RFC 9985: Optimized Authentication for Bidirectional Forwarding Detection.
+       RFC 9986: Meticulous Keyed ISAAC Authentication for BFD.";
+  }
+
   revision 2025-03-03 {
     description "Add log-session-changes leaf";
     reference
@@ -73,6 +81,12 @@ module frr-bfdd {
   /*
    * BFD types declaration.
    */
+
+  feature optimized-auth {
+    description
+      "RFC 9985 optimized BFD authentication (MCI/LCI partitioning).";
+  }
+
   typedef multiplier {
     type uint8 {
       range "1..255";
@@ -175,6 +189,25 @@ module frr-bfdd {
     leaf authentication-algorithm-meticulous {
       type boolean;
       description "Use meticulous algorithm with SHA-1";
+    }
+
+    leaf authentication-optimized {
+      if-feature "optimized-auth";
+      type boolean;
+      default false;
+      description
+        "Enable RFC 9985 optimized authentication (requires optimized keychain algorithm).";
+    }
+
+    leaf reauth-interval {
+      if-feature "optimized-auth";
+      type uint32 {
+        range "0..max";
+      }
+      units seconds;
+      default 60;
+      description
+        "Periodic MCI reauthentication interval while in LCI mode (0 disables).";
     }
   }
 
@@ -481,6 +514,25 @@ module frr-bfdd {
           leaf authentication-algorithm-meticulous {
             type boolean;
             description "Use meticulous algorithm with SHA-1";
+          }
+
+          leaf authentication-optimized {
+            if-feature "optimized-auth";
+            type boolean;
+            default false;
+            description
+              "Enable RFC 9985 optimized authentication (requires optimized keychain algorithm).";
+          }
+
+          leaf reauth-interval {
+            if-feature "optimized-auth";
+            type uint32 {
+              range "0..max";
+            }
+            units seconds;
+            default 60;
+            description
+              "Periodic MCI reauthentication interval while in LCI mode (0 disables).";
           }
         }
       }

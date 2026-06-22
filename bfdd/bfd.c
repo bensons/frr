@@ -19,6 +19,9 @@
 
 #include "bfd.h"
 #include "bfd_trace.h"
+#ifdef HAVE_BFD_OPT_AUTH
+#include "bfd_opt_auth.h"
+#endif
 
 DEFINE_MTYPE_STATIC(BFDD, BFDD_CONFIG, "long-lived configuration memory");
 DEFINE_MTYPE_STATIC(BFDD, BFDD_PROFILE, "long-lived profile memory");
@@ -101,6 +104,9 @@ static void bfd_profile_set_default(struct bfd_profile *bp)
 	/* Keychain authentication parameters */
 	memset(bp->auth_config.key_chain_name, 0, sizeof(bp->auth_config.key_chain_name));
 	bp->auth_config.meticulous = false;
+#ifdef HAVE_BFD_OPT_AUTH
+	bfd_opt_auth_config_init(&bp->auth_config.optimized, &bp->auth_config.reauth_interval);
+#endif
 }
 
 struct bfd_profile *bfd_profile_new(const char *name)
@@ -264,6 +270,10 @@ void bfd_session_apply(struct bfd_session *bs)
 		bs->auth_meticulous = false;
 		bs->auth_seq_num_update_modulo = AUTH_SEQ_NUM_MODULO;
 	}
+
+#ifdef HAVE_BFD_OPT_AUTH
+	bfd_opt_auth_session_apply(bs);
+#endif
 
 	/* If session interval changed negotiate new timers. */
 	if (bs->ses_state == PTM_BFD_UP &&
@@ -606,6 +616,12 @@ const char *bfd_auth_type_get_description(enum bfd_auth_type auth_type)
 		return "meticulous keyed-sha1";
 	case BFD_AUTH_TYPE_KEYED_SHA1:
 		return "keyed-sha1";
+#ifdef HAVE_BFD_OPT_AUTH
+	case BFD_AUTH_TYPE_OPT_MD5_ISAAC:
+		return "optimized-md5-meticulous-keyed-isaac";
+	case BFD_AUTH_TYPE_OPT_SHA1_ISAAC:
+		return "optimized-sha1-meticulous-keyed-isaac";
+#endif
 	case BFD_AUTH_TYPE_RESERVED:
 		return "none";
 	}
@@ -618,10 +634,17 @@ enum bfd_auth_type map_keychain_algo_to_bfd_auth_type(enum keychain_hash_algo kc
 	switch (kc_algo) {
 	case KEYCHAIN_ALGO_HMAC_SHA1:
 		return meticulous ? BFD_AUTH_TYPE_METICULOUS_KEYED_SHA1 : BFD_AUTH_TYPE_KEYED_SHA1;
+	case KEYCHAIN_ALGO_MD5:
+		return meticulous ? BFD_AUTH_TYPE_METICULOUS_KEYED_MD5 : BFD_AUTH_TYPE_KEYED_MD5;
+#ifdef HAVE_BFD_OPT_AUTH
+	case KEYCHAIN_ALGO_OPT_MD5_ISAAC:
+		return BFD_AUTH_TYPE_OPT_MD5_ISAAC;
+	case KEYCHAIN_ALGO_OPT_SHA1_ISAAC:
+		return BFD_AUTH_TYPE_OPT_SHA1_ISAAC;
+#endif
 	case KEYCHAIN_ALGO_NULL:
 	case KEYCHAIN_ALGO_CLEARTEXT:
 		return BFD_AUTH_TYPE_SIMPLE_PASSWORD;
-	case KEYCHAIN_ALGO_MD5:
 	case KEYCHAIN_ALGO_HMAC_SHA256:
 	case KEYCHAIN_ALGO_HMAC_SHA384:
 	case KEYCHAIN_ALGO_HMAC_SHA512:
@@ -652,10 +675,23 @@ struct key *bfd_keychain_key_find_active(const struct keychain *keychain, bool m
 	now_sec = now_ts.tv_sec; /* Use seconds part for comparison with time_t lifetimes */
 
 	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key)) {
+#ifdef HAVE_BFD_OPT_AUTH
+		if (key->hash_algo == KEYCHAIN_ALGO_OPT_MD5_ISAAC ||
+		    key->hash_algo == KEYCHAIN_ALGO_OPT_SHA1_ISAAC) {
+			if (!key->string)
+				continue;
+			if (key->send.start == 0 ||
+			    (key->send.start <= now_sec &&
+			     (key->send.end >= now_sec || key->send.end == (time_t)-1)))
+				return key;
+			continue;
+		}
+#endif
 		if (meticulous && key->hash_algo != KEYCHAIN_ALGO_HMAC_SHA1)
 			continue;
 		if (key->hash_algo != KEYCHAIN_ALGO_CLEARTEXT &&
-		    key->hash_algo != KEYCHAIN_ALGO_HMAC_SHA1)
+		    key->hash_algo != KEYCHAIN_ALGO_HMAC_SHA1 &&
+		    key->hash_algo != KEYCHAIN_ALGO_MD5)
 			continue;
 		if (!key->string)
 			continue;
@@ -747,6 +783,12 @@ void ptm_bfd_sess_up(struct bfd_session *bfd)
 	/* Start sending control packets with poll bit immediately. */
 	ptm_bfd_snd(bfd, 0);
 
+#ifdef HAVE_BFD_OPT_AUTH
+	bfd_opt_auth_on_session_up(bfd);
+	if (bfd_opt_auth_enabled(bfd) && !bfd->opt_auth.client_notified_up)
+		return;
+#endif
+
 	ptm_bfd_notify(bfd, bfd->ses_state);
 
 	frrtrace(4, frr_bfd, state_change, bfd, old_state, bfd->ses_state, bfd->local_diag);
@@ -783,6 +825,10 @@ void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag, bool notify_admin_do
 	bfd->polling = 0;
 	bfd->demand_mode = 0;
 	monotime(&bfd->downtime);
+
+#ifdef HAVE_BFD_OPT_AUTH
+	bfd_opt_auth_on_session_down(bfd);
+#endif
 
 	/*
 	 * Only attempt to send if we have a valid socket:

@@ -1054,6 +1054,55 @@ void bfd_cli_show_auth_algorithm_meticulous(struct vty *vty, const struct lyd_no
 		vty_out(vty, "  authentication algorithm meticulous\n");
 }
 
+#ifdef HAVE_BFD_OPT_AUTH
+DEFPY_YANG(bfd_peer_auth_optimized, bfd_peer_auth_optimized_cmd,
+	   "[no] authentication optimized",
+	   NO_STR
+	   "Configure BFD peer authentication\n"
+	   "Enable RFC 9985 optimized authentication (experimental)\n")
+{
+	if (no) {
+		nb_cli_enqueue_change(vty, "./authentication-optimized", NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	nb_cli_enqueue_change(vty, "./authentication-optimized", NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bfd_peer_reauth_interval, bfd_peer_reauth_interval_cmd,
+	   "[no] authentication reauth-interval (0-4294967295)$interval",
+	   NO_STR
+	   "Configure BFD peer authentication\n"
+	   "Periodic MCI reauthentication interval while in LCI mode\n"
+	   "Interval in seconds (0 disables)\n")
+{
+	if (no) {
+		nb_cli_enqueue_change(vty, "./reauth-interval", NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	nb_cli_enqueue_change(vty, "./reauth-interval", NB_OP_MODIFY, interval_str);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void bfd_cli_show_auth_optimized(struct vty *vty, const struct lyd_node *dnode,
+				 bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "  authentication optimized\n");
+}
+
+void bfd_cli_show_reauth_interval(struct vty *vty, const struct lyd_node *dnode,
+				  bool show_defaults)
+{
+	uint32_t interval = yang_dnode_get_uint32(dnode, NULL);
+
+	if (interval != BFD_OPT_AUTH_DEFAULT_REAUTH_INTERVAL || show_defaults)
+		vty_out(vty, "  authentication reauth-interval %u\n", interval);
+}
+#endif /* HAVE_BFD_OPT_AUTH */
+
 /*
  * Profile commands.
  */
@@ -1154,6 +1203,60 @@ void bfd_cli_show_profile_authentication_algorithm_meticulous(struct vty *vty,
 	if (meticulous)
 		vty_out(vty, "  authentication algorithm meticulous\n");
 }
+
+#ifdef HAVE_BFD_OPT_AUTH
+DEFPY_YANG(bfd_profile_auth_optimized, bfd_profile_auth_optimized_cmd,
+	   "[no] authentication optimized",
+	   NO_STR
+	   "Configure BFD profile authentication\n"
+	   "Enable RFC 9985 optimized authentication (experimental)\n")
+{
+	if (no) {
+		nb_cli_enqueue_change(vty, "./profile-authentication/authentication-optimized",
+				       NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	nb_cli_enqueue_change(vty, "./profile-authentication/authentication-optimized",
+			      NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(bfd_profile_reauth_interval, bfd_profile_reauth_interval_cmd,
+	   "[no] authentication reauth-interval (0-4294967295)$interval",
+	   NO_STR
+	   "Configure BFD profile authentication\n"
+	   "Periodic MCI reauthentication interval while in LCI mode\n"
+	   "Interval in seconds (0 disables)\n")
+{
+	if (no) {
+		nb_cli_enqueue_change(vty, "./profile-authentication/reauth-interval",
+				      NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	nb_cli_enqueue_change(vty, "./profile-authentication/reauth-interval", NB_OP_MODIFY,
+			      interval_str);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void bfd_cli_show_profile_authentication_optimized(struct vty *vty,
+						      const struct lyd_node *dnode,
+						      bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "  authentication optimized\n");
+}
+
+void bfd_cli_show_profile_reauth_interval(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	uint32_t interval = yang_dnode_get_uint32(dnode, NULL);
+
+	if (interval != BFD_OPT_AUTH_DEFAULT_REAUTH_INTERVAL || show_defaults)
+		vty_out(vty, "  authentication reauth-interval %u\n", interval);
+}
+#endif /* HAVE_BFD_OPT_AUTH */
 
 ALIAS_YANG(bfd_peer_mult, bfd_profile_mult_cmd,
       "[no] detect-multiplier ![(1-255)$multiplier]",
@@ -1496,6 +1599,10 @@ bfdd_cli_init(void)
 	install_element(BFD_PEER_NODE, &no_bfd_peer_minimum_ttl_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_auth_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_auth_meticulous_cmd);
+#ifdef HAVE_BFD_OPT_AUTH
+	install_element(BFD_PEER_NODE, &bfd_peer_auth_optimized_cmd);
+	install_element(BFD_PEER_NODE, &bfd_peer_reauth_interval_cmd);
+#endif
 
 	/* Profile commands. */
 	cmd_variable_handler_register(bfd_vars);
@@ -1520,4 +1627,8 @@ bfdd_cli_init(void)
 	install_element(BFD_PROFILE_NODE, &no_bfd_profile_minimum_ttl_cmd);
 	install_element(BFD_PROFILE_NODE, &bfd_profile_set_authentication_key_chain_cmd);
 	install_element(BFD_PROFILE_NODE, &bfd_profile_set_authentication_algorithm_meticulous_cmd);
+#ifdef HAVE_BFD_OPT_AUTH
+	install_element(BFD_PROFILE_NODE, &bfd_profile_auth_optimized_cmd);
+	install_element(BFD_PROFILE_NODE, &bfd_profile_reauth_interval_cmd);
+#endif
 }

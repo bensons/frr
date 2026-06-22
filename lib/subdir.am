@@ -174,6 +174,13 @@ lib_libfrr_la_LIBADD += $(SQLITE3_LIBS)
 lib_libfrr_la_SOURCES += lib/db.c
 endif
 
+if BFD_OPT_AUTH
+lib_libfrr_la_SOURCES += \
+	lib/isaac.c \
+	lib/bfd_isaac.c \
+	# end
+endif
+
 clippy_scan += \
 	lib/affinitymap_cli.c \
 	lib/host_cli.c \
@@ -204,6 +211,8 @@ nobase_pkginclude_HEADERS += \
 	lib/atomptr.h \
 	lib/base64.h \
 	lib/bfd.h \
+	lib/bfd_isaac.h \
+	lib/isaac.h \
 	lib/bitfield.h \
 	lib/buffer.h \
 	lib/checksum.h \

@@ -23,6 +23,36 @@
 #include "lib/keychain.h"
 #include "lib/bfd.h"
 
+#ifdef HAVE_BFD_OPT_AUTH
+#include "bfd_isaac.h"
+
+#define BFD_OPT_AUTH_MODE_MCI 1
+#define BFD_OPT_AUTH_MODE_LCI 2
+#define BFD_OPT_AUTH_DEFAULT_REAUTH_INTERVAL 60
+
+enum bfd_opt_auth_mode {
+	BFD_OPT_AUTH_TX_MCI = 1,
+	BFD_OPT_AUTH_TX_LCI = 2,
+};
+
+struct bfd_opt_auth_runtime {
+	bool enabled;
+	enum bfd_opt_auth_mode tx_mode;
+	bool auth_seq_known;
+	bool lci_ready;
+	bool client_notified_up;
+	bool reauth_poll_pending;
+	bool force_mci;
+	uint32_t reauth_interval;
+	uint32_t xmit_seed;
+	struct bfd_isaac_state xmit_isaac;
+	struct bfd_isaac_state recv_isaac;
+	struct event *bootstrap_ev;
+	struct event *reauth_ev;
+	struct event *reauth_timeout_ev;
+};
+#endif
+
 #ifdef BFD_DEBUG
 #define BFDD_JSON_CONV_OPTIONS (JSON_C_TO_STRING_PRETTY)
 #else
@@ -106,10 +136,14 @@ struct bfd_peer_cfg {
 		/* Keychain name for authentication */
 		char key_chain_name[MAXKEYCHAINNAMELEN + 1];
 		bool meticulous;
+#ifdef HAVE_BFD_OPT_AUTH
+		bool optimized;
+		uint32_t reauth_interval;
+#endif
 	} auth_config;
 };
 
-/* BFD Authentication Types from RFC 5880 */
+/* BFD Authentication Types from RFC 5880 and RFC 9986 */
 enum bfd_auth_type {
 	BFD_AUTH_TYPE_RESERVED = 0, /* Reserved */
 	BFD_AUTH_TYPE_SIMPLE_PASSWORD = 1,
@@ -117,6 +151,10 @@ enum bfd_auth_type {
 	BFD_AUTH_TYPE_METICULOUS_KEYED_MD5 = 3,
 	BFD_AUTH_TYPE_KEYED_SHA1 = 4,
 	BFD_AUTH_TYPE_METICULOUS_KEYED_SHA1 = 5,
+#ifdef HAVE_BFD_OPT_AUTH
+	BFD_AUTH_TYPE_OPT_MD5_ISAAC = 7,
+	BFD_AUTH_TYPE_OPT_SHA1_ISAAC = 8,
+#endif
 };
 
 struct bfd_timers {
@@ -317,6 +355,11 @@ struct bfd_session_stats {
 	uint64_t rx_pkt_authentication_keyed_sha1_mismatch;
 	uint64_t rx_pkt_authentication_keyed_sha1_sequence_error;
 	uint64_t rx_pkt_authentication_keyed_sha1_sequence_meticulous_error;
+#ifdef HAVE_BFD_OPT_AUTH
+	uint64_t rx_pkt_authentication_opt_mci_mismatch;
+	uint64_t rx_pkt_authentication_opt_lci_mismatch;
+	uint64_t rx_pkt_authentication_opt_mode_error;
+#endif
 };
 
 /**
@@ -353,6 +396,10 @@ struct bfd_profile {
 		/* Keychain name for authentication */
 		char key_chain_name[MAXKEYCHAINNAMELEN + 1];
 		bool meticulous;
+#ifdef HAVE_BFD_OPT_AUTH
+		bool optimized;
+		uint32_t reauth_interval;
+#endif
 	} auth_config;
 
 	/** Profile list entry. */
@@ -459,6 +506,9 @@ struct bfd_session {
 #define AUTH_SEQ_NUM_MODULO_METICULOUS 1
 	uint32_t auth_seq_num_update_modulo;
 	bool auth_meticulous;
+#ifdef HAVE_BFD_OPT_AUTH
+	struct bfd_opt_auth_runtime opt_auth;
+#endif
 };
 
 struct bfd_diag_str_list {

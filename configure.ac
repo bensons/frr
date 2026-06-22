@@ -845,6 +845,8 @@ AC_ARG_ENABLE([clang_coverage],
   AS_HELP_STRING([--enable-clang-coverage], [Collect coverage information with Clang Coverage]))
 AC_ARG_ENABLE([bfdd],
   AS_HELP_STRING([--disable-bfdd], [do not build bfdd]))
+AC_ARG_ENABLE([bfd-opt-auth],
+  AS_HELP_STRING([--enable-bfd-opt-auth], [Enable RFC 9985 optimized BFD authentication (experimental)]))
 AC_ARG_ENABLE([address-sanitizer],
   AS_HELP_STRING([--enable-address-sanitizer], [enable AddressSanitizer support for detecting a wide variety of memory allocation and deallocation errors]))
 AC_ARG_ENABLE([thread-sanitizer],
@@ -1921,6 +1923,13 @@ else
   esac
 fi
 
+AS_IF([test "$enable_bfd_opt_auth" = "yes"], [
+  if test "$BFDD" != "bfdd"; then
+    AC_MSG_ERROR([--enable-bfd-opt-auth requires bfdd])
+  fi
+  AC_DEFINE([HAVE_BFD_OPT_AUTH], [1], [RFC 9985 optimized BFD authentication])
+])
+
 AS_IF([test "$enable_pathd" != "no"], [
   AC_DEFINE([HAVE_PATHD], [1], [pathd])
 ])
@@ -2798,6 +2807,7 @@ AM_CONDITIONAL([RIPD], [test "$enable_ripd" != "no"])
 AM_CONDITIONAL([OSPFD], [test "$enable_ospfd" != "no"])
 AM_CONDITIONAL([LDPD], [test "$enable_ldpd" != "no"])
 AM_CONDITIONAL([BFDD], [test "$BFDD" = "bfdd"])
+AM_CONDITIONAL([BFD_OPT_AUTH], [test "$enable_bfd_opt_auth" = "yes"])
 AM_CONDITIONAL([NHRPD], [test "$NHRPD" = "nhrpd"])
 AM_CONDITIONAL([EIGRPD], [test "$enable_eigrpd" != "no"])
 AM_CONDITIONAL([WATCHFRR], [test "$WATCHFRR" = "watchfrr"])

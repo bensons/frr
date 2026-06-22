@@ -53,6 +53,16 @@ int bfdd_bfd_sessions_common_authentication_algorithm_meticulous_modify(
 	struct nb_cb_modify_args *args);
 int bfdd_bfd_sessions_common_authentication_algorithm_meticulous_destroy(
 	struct nb_cb_destroy_args *args);
+#ifdef HAVE_BFD_OPT_AUTH
+int bfdd_bfd_profile_authentication_optimized_modify(struct nb_cb_modify_args *args);
+int bfdd_bfd_profile_authentication_optimized_destroy(struct nb_cb_destroy_args *args);
+int bfdd_bfd_profile_reauth_interval_modify(struct nb_cb_modify_args *args);
+int bfdd_bfd_profile_reauth_interval_destroy(struct nb_cb_destroy_args *args);
+int bfdd_bfd_sessions_common_authentication_optimized_modify(struct nb_cb_modify_args *args);
+int bfdd_bfd_sessions_common_authentication_optimized_destroy(struct nb_cb_destroy_args *args);
+int bfdd_bfd_sessions_common_reauth_interval_modify(struct nb_cb_modify_args *args);
+int bfdd_bfd_sessions_common_reauth_interval_destroy(struct nb_cb_destroy_args *args);
+#endif
 int bfdd_bfd_sessions_single_hop_profile_destroy(
 	struct nb_cb_destroy_args *args);
 int bfdd_bfd_sessions_single_hop_detection_multiplier_modify(
@@ -254,6 +264,17 @@ void bfd_cli_show_profile_authentication_key_chain(struct vty *vty, const struct
 void bfd_cli_show_profile_authentication_algorithm_meticulous(struct vty *vty,
 							      const struct lyd_node *dnode,
 							      bool show_defaults);
+#ifdef HAVE_BFD_OPT_AUTH
+void bfd_cli_show_auth_optimized(struct vty *vty, const struct lyd_node *dnode,
+				 bool show_defaults);
+void bfd_cli_show_reauth_interval(struct vty *vty, const struct lyd_node *dnode,
+				  bool show_defaults);
+void bfd_cli_show_profile_authentication_optimized(struct vty *vty,
+						     const struct lyd_node *dnode,
+						     bool show_defaults);
+void bfd_cli_show_profile_reauth_interval(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults);
+#endif
 int bfdd_bfd_sessions_bfd_mode_modify(struct nb_cb_modify_args *args);
 int bfdd_bfd_sessions_bfd_mode_destroy(struct nb_cb_destroy_args *args);
 

@@ -14,6 +14,9 @@
 
 #include "bfd.h"
 #include "bfd_trace.h"
+#ifdef HAVE_BFD_OPT_AUTH
+#include "bfd_opt_auth.h"
+#endif
 
 #include "bfdd/bfdd_vty_clippy.c"
 
@@ -171,6 +174,9 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 		vty_out(vty, " (key-chain-name %s, crypto-used %s%s)\n", bs->kc->name,
 			bfd_auth_type_get_description(auth_type),
 			bs->auth_meticulous ? ", algo meticulous" : "");
+#ifdef HAVE_BFD_OPT_AUTH
+		bfd_opt_auth_stats_show(bs, vty, NULL);
+#endif
 	} else if (bs->peer_profile.auth_config.key_chain_name[0] != '\0')
 		vty_out(vty, "\t\tAuthentication is configured (key-chain-name %s)\n",
 			bs->peer_profile.auth_config.key_chain_name);
@@ -334,6 +340,9 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 		json_object_boolean_add(auth_jo, "key-algorithm-meticulous", bs->auth_meticulous);
 		json_object_string_add(auth_jo, "cryptoName",
 				       bfd_auth_type_get_description(auth_type));
+#ifdef HAVE_BFD_OPT_AUTH
+		bfd_opt_auth_stats_show(bs, NULL, auth_jo);
+#endif
 	} else {
 		json_object_boolean_add(auth_jo, "enabled", false);
 		if (bs->peer_profile.auth_config.key_chain_name[0] != '\0') {
@@ -641,6 +650,14 @@ static void _display_peer_counter(struct vty *vty, struct bfd_session *bs)
 			"\t\tRx Authentication type keyed sha-1 meticulous sequence error: %" PRIu64
 			"\n",
 			bs->stats.rx_pkt_authentication_keyed_sha1_sequence_meticulous_error);
+#ifdef HAVE_BFD_OPT_AUTH
+	if (bs->stats.rx_pkt_authentication_opt_mci_mismatch)
+		vty_out(vty, "\t\tRx Optimized auth MCI mismatch: %" PRIu64 "\n",
+			bs->stats.rx_pkt_authentication_opt_mci_mismatch);
+	if (bs->stats.rx_pkt_authentication_opt_lci_mismatch)
+		vty_out(vty, "\t\tRx Optimized auth LCI mismatch: %" PRIu64 "\n",
+			bs->stats.rx_pkt_authentication_opt_lci_mismatch);
+#endif
 	vty_out(vty, "\n");
 }
 
@@ -683,6 +700,14 @@ static struct json_object *__display_peer_counters_json(struct bfd_session *bs)
 		json_object_int_add(jo,
 				    "rx-pkt-authentication-keyed-sha1-sequence-meticulous-error",
 				    bs->stats.rx_pkt_authentication_keyed_sha1_sequence_meticulous_error);
+#ifdef HAVE_BFD_OPT_AUTH
+	if (bs->stats.rx_pkt_authentication_opt_mci_mismatch)
+		json_object_int_add(jo, "rx-pkt-authentication-opt-mci-mismatch",
+				    bs->stats.rx_pkt_authentication_opt_mci_mismatch);
+	if (bs->stats.rx_pkt_authentication_opt_lci_mismatch)
+		json_object_int_add(jo, "rx-pkt-authentication-opt-lci-mismatch",
+				    bs->stats.rx_pkt_authentication_opt_lci_mismatch);
+#endif
 
 	if (bs->bfd_mode == BFD_MODE_TYPE_SBFD_INIT || bs->bfd_mode == BFD_MODE_TYPE_SBFD_ECHO)
 		json_object_int_add(jo, "tx-fail-packet", bs->stats.tx_fail_pkt);

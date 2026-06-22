@@ -254,6 +254,12 @@ const struct keychain_algo_info algo_info[] = {
 	{KEYCHAIN_ALGO_HMAC_SHA512, "hmac-sha-512",
 	 KEYCHAIN_HMAC_SHA512_HASH_SIZE, KEYCHAIN_ALGO_SHA512_INTERNAL_BLK_SIZE,
 	 "HMAC-SHA-512"},
+	{KEYCHAIN_ALGO_OPT_MD5_ISAAC, "optimized-md5-meticulous-keyed-isaac",
+	 KEYCHAIN_MD5_HASH_SIZE, KEYCHAIN_ALGO_MD5_INTERNAL_BLK_SIZE,
+	 "Optimized MD5 Meticulous Keyed ISAAC"},
+	{KEYCHAIN_ALGO_OPT_SHA1_ISAAC, "optimized-sha1-meticulous-keyed-isaac",
+	 KEYCHAIN_HMAC_SHA1_HASH_SIZE, KEYCHAIN_ALGO_SHA1_INTERNAL_BLK_SIZE,
+	 "Optimized SHA-1 Meticulous Keyed ISAAC"},
 	{KEYCHAIN_ALGO_MAX, "max", KEYCHAIN_MAX_HASH_SIZE,
 	 KEYCHAIN_ALGO_MAX_INTERNAL_BLK_SIZE, "Not defined"}
 };
@@ -305,6 +311,10 @@ enum keychain_hash_algo keychain_get_algo_id_by_name(const char *name)
 		return KEYCHAIN_ALGO_HMAC_SHA384;
 	else if (!strncmp(name, "hmac-sha-5", 10))
 		return KEYCHAIN_ALGO_HMAC_SHA512;
+	else if (!strncmp(name, "optimized-md5-meticulous-keyed-isaac", 36))
+		return KEYCHAIN_ALGO_OPT_MD5_ISAAC;
+	else if (!strncmp(name, "optimized-sha1-meticulous-keyed-isaac", 37))
+		return KEYCHAIN_ALGO_OPT_SHA1_ISAAC;
 	else
 		return KEYCHAIN_ALGO_NULL;
 #endif

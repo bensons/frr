@@ -241,6 +241,21 @@ BFD peers and profiles share the same BFD session configuration commands.
    Configure peer or profile to use meticulous mode when the key-chain
    is configured with a hmac-sha1 crypto algorithm.
 
+.. clicmd:: authentication optimized
+
+   **Experimental.** Enable RFC 9985 optimized BFD authentication. Requires
+   FRR to be built with ``--enable-bfd-opt-auth`` and a key-chain using
+   ``optimized-md5-meticulous-keyed-isaac`` or
+   ``optimized-sha1-meticulous-keyed-isaac`` as the cryptographic algorithm.
+   When enabled, BFD uses MCI (HMAC) for significant changes and LCI (ISAAC)
+   for steady-state Up packets per RFC 9985/9986.
+
+.. clicmd:: authentication reauth-interval (0-4294967295)
+
+   **Experimental.** Configure the periodic MCI reauthentication interval in
+   seconds while operating in LCI mode (default 60, 0 disables). Only applies
+   when optimized authentication is enabled.
+
 BFD Peer Specific Commands
 --------------------------
 
@@ -857,6 +872,13 @@ this authentication:
 Possible example is a simple cryptographic algorithm, which means
 the key string is sent in clear text and will be visible in packet
 captures (e.g., using tcpdump).
+
+**RFC 9985 optimized authentication (experimental):** When built with
+``--enable-bfd-opt-auth``, BFD supports optimized authentication types 7 and 8
+(RFC 9986 Meticulous Keyed ISAAC for LCI, HMAC-MD5/SHA-1 for MCI). Enabling
+``authentication optimized`` on a peer is **not RFC 5880 compliant** while
+active (see RFC 9985 Appendix B). Client protocols may not be notified of
+session Up until LCI bootstrap completes.
 
 BFD authentication configuration
 ================================

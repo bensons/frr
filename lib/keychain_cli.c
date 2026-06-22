@@ -118,7 +118,8 @@ DEFPY_YANG(
       cryptographic_algorithm,
       cryptographic_algorithm_cmd,
       "cryptographic-algorithm "
-      "<null|cleartext|md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512>$algo",
+      "<null|cleartext|md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512|"
+      "optimized-md5-meticulous-keyed-isaac|optimized-sha1-meticulous-keyed-isaac>$algo",
       "Cryptographic-algorithm\n"
       "null\n"
       "Use cleartext password\n"
@@ -126,7 +127,9 @@ DEFPY_YANG(
       "Use HMAC-SHA-1 algorithm\n"
       "Use HMAC-SHA-256 algorithm\n"
       "Use HMAC-SHA-384 algorithm\n"
-      "Use HMAC-SHA-512 algorithm\n")
+      "Use HMAC-SHA-512 algorithm\n"
+      "RFC 9986 optimized MD5 + ISAAC (BFD experimental)\n"
+      "RFC 9986 optimized SHA-1 + ISAAC (BFD experimental)\n")
 {
 	nb_cli_enqueue_change(vty, "./crypto-algorithm", NB_OP_CREATE, algo);
 	return nb_cli_apply_changes(vty, NULL);
@@ -136,7 +139,8 @@ DEFPY_YANG(
       no_cryptographic_algorithm,
       no_cryptographic_algorithm_cmd,
       "no cryptographic-algorithm "
-      "[<null|cleartext|md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512>$algo]",
+      "[<null|cleartext|md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512|"
+      "optimized-md5-meticulous-keyed-isaac|optimized-sha1-meticulous-keyed-isaac>$algo]",
       NO_STR
       "Cryptographic-algorithm\n"
       "null\n"

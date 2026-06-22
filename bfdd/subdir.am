@@ -23,6 +23,11 @@ bfdd_libbfd_a_SOURCES = \
 	bfdd/bfd_trace.c \
 	# end
 
+if BFD_OPT_AUTH
+bfdd_libbfd_a_SOURCES += bfdd/bfd_opt_auth.c
+noinst_HEADERS += bfdd/bfd_opt_auth.h
+endif
+
 # Install headers so it can be used by external data plane
 # implementations.
 bfdd_headersdir = $(pkgincludedir)/bfdd
